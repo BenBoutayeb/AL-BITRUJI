@@ -18,8 +18,8 @@ You will find here the following programs and codes :
     05 - AlBitruji Raw Data.html
     06 - AlBitruji Test Orbspeed 1 half.html
     07 - AlBitruji Test Orbspeed 1of12.html
-    08 - AlBitruji Hypopede Without OrbSpeed.html
-    09 - AlBitruji Hypopede With OrbSpeed.html
+    08 - AlBitruji Hippopede Without OrbSpeed.html
+    09 - AlBitruji Hippopede With OrbSpeed.html
     10 - AlBitruji Test of Loops.html
 
 
