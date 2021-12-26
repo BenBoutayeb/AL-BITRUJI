@@ -1,0 +1,502 @@
+<!DOCTYPE HTML>
+<head>
+  <title>Bitruji cosmological model</title>
+</head>
+<html>
+    <style>
+    html, body {
+       margin: 0;
+       height: 100%;
+    }
+    body {
+        margin: 0;
+    }
+    #c {
+        width: 80%;
+        height: 80%;
+        display: block;
+        position: fixed;
+        background-color:white);
+        left: 0;
+        top: 0;
+        z-index: 2;
+        pointer-events: none;
+    }
+    #content {
+      font-size: 2vw;
+      font-family: sans-serif;
+      text-align: right;
+      width: 90vw;
+      height: 90vh;
+      display: flex;
+      justify-content: right;
+      align-items: right;
+    }
+    </style>
+<body>
+  
+  <canvas id="c">
+  </canvas>
+  <div id="ui"></div>
+  <div id="content">
+    <div>
+      <h3>هيئة البطروجي</h3>
+  </div>
+  </div> 
+  <div id="planetPositions">
+    <div>
+      <p>Here are the SUN positions</p>
+    </div>
+  </div>
+  <script src="https://threejsfundamentals.org/threejs/../3rdparty/dat.gui.min.js"></script>
+  <script src="https://threejsfundamentals.org/threejs/resources/threejs/r105/three.min.js"></script>
+  <script >
+    // Three.js - Bitruji's Cosmological System
+
+    'use strict';
+
+    function main() {
+
+      let anomalyDegrees = 0;
+
+      // let result = 1 * prompt('Anomaly in degrees (3 to 20) ', 3);
+      // //alert(" result "+ (result));
+      // if ((result >= 3) && (result <= 20)){
+      //   anomalyDegrees = result;
+      // }
+
+
+      // alert('modules loaded');
+
+      // some common constants and variables
+      const sCS = 100; // scaleOfCelestialSphere
+      const obliquity = (24.0 * Math.PI) / 180.0; // radians
+      //const anomalyDegrees = 3;
+      const anomaly = (anomalyDegrees * Math.PI) / 180.0; // radians
+      const sinus24 = Math.sin(obliquity);
+      const cosinus24 = Math.cos(obliquity);
+      const sinusAnomaly = Math.sin(anomaly);
+      const cosinusAnomaly = Math.cos(anomaly);
+
+
+
+      let target = new THREE.Vector3();
+      let clock = new THREE.Clock();
+      clock.start();
+      let trajecT = ''; // trajectory as a <table>
+      let pts = []; // positions of the planet
+      let startingPoint = new THREE.Vector3(-sCS * 10, -sCS * 10, -sCS * 10); // the trajectory never starting there
+      let nber = 0; // number of vectors3 in the positions' array
+      const nberMax = 3200; //maximum number of positions
+      let minDelta = 10e6;
+      let atIteration = -1;
+      let points = new THREE.Object3D();
+      let trajectoryAdded = false;
+      let usedPoints = []; // for the trajectory
+
+
+      //================ BEGIN ==================
+      const canvas = document.querySelector('#c');
+      //const renderer = new THREE.WebGLRenderer({canvas}); //canvas without alpha
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+      }); // canvas with alpha
+      
+
+    // Cameras
+
+      function makeCamera(fov = 90, posX = 0, posY = 0, posZ = 0) {
+        const aspect = window.innerWidth / window.innerHeight;  // the canvas default
+        const zNear = 0.1;
+        const zFar = 1000;
+        const cam = new THREE.PerspectiveCamera(fov, aspect, zNear, zFar);
+        cam.position.set(posX, posY, posZ);
+        cam.up.set(0, 1, 0);
+        cam.lookAt(0, 0, 0);
+        return cam;
+      }
+      // many cameras to turn around
+      let manyCameras = [];
+      const nbrCam = 360;
+      const eloignement = 1.5
+      let angle = 2 * Math.PI / nbrCam;
+      for (let i=0; i<nbrCam; i++){
+        manyCameras.push(makeCamera(75, Math.cos(angle * i) * eloignement * sCS,
+                                        Math.cos(angle * i) * eloignement * sCS, 
+                                        Math.sin(angle * i) * eloignement * sCS));
+      }
+      const staticCamera = manyCameras[45];
+
+      let cameraUsed = staticCamera;
+
+
+    // Scene
+      const scene = new THREE.Scene();
+
+
+    // two lights
+      const color = 0xFFFFFF; 
+      const intensity = 1;
+      // a - light from the left bottom
+      const light1 = new THREE.DirectionalLight(color, intensity);
+      light1.position.set(-sCS, -sCS, 0);
+      light1.target.position.set(0, 0, 0);
+      scene.add(light1);
+      scene.add(light1.target);
+      
+      // b - light from the right top
+      const light2 = new THREE.DirectionalLight(color, intensity);
+      light2.position.set(sCS, sCS, 0);
+      light2.target.position.set(0, 0, 0);
+      scene.add(light2);
+      scene.add(light2.target);
+
+    // A unit sphere to be redimentionned 
+      const radius = 1;
+      const widthSegments = 18; // Longitude : every 20°
+      const heightSegments = 18;// Latitude : every 20°
+      let thetaS = 0; // thetaStart
+      let thetaL = Math.PI * 2; // thetaLength 
+      const sphereGeometry = new THREE.SphereBufferGeometry(
+                                        radius, widthSegments, heightSegments, 0, Math.PI * 2, thetaS, thetaL);
+
+    // *** 1 - The 1st reference system (the first mover)
+      const firstSystem = new THREE.Object3D();
+      firstSystem.scale.set(sCS, sCS, sCS);
+      firstSystem.rotateY(-Math.PI/2);
+      firstSystem.moving = true;
+      scene.add(firstSystem);
+
+      // 1.1 - the celestial sphere
+      thetaS = Math.PI; // thetaStart
+      thetaL = Math.PI ; // thetaLength 
+      const celestialSphereGeometry = new THREE.SphereBufferGeometry(
+                                        radius, 18, 9 , 0, Math.PI * 2.0, thetaS, thetaL);
+      const celestialMaterial = new THREE.MeshPhongMaterial({color: 'blue', opacity : 0.25, transparent: true,});
+      celestialMaterial.flatShading = true;
+      const celestialMesh = new THREE.Line(celestialSphereGeometry, celestialMaterial);
+      celestialMesh.visible = true;
+      firstSystem.add(celestialMesh); 
+
+      // 1.2 - the main pole axis as a cylinder
+      const scaleOfPole = 1.5 * sCS
+      const radiusTop = 1;  
+      const radiusBottom = 1;  
+      const height = scaleOfPole;
+      const radialSegments = 4;  
+      const poleMaterial = new THREE.MeshBasicMaterial({color: 0x000000});
+      const poleGeometry = new THREE.CylinderBufferGeometry(radiusTop, radiusBottom, height, radialSegments);
+      const poleCylinder = new THREE.Mesh( poleGeometry, poleMaterial );
+      poleCylinder.scale.set(0.01*scaleOfPole , 2, 0.01*scaleOfPole);
+      scene.add(poleCylinder); // so it does'nt rotate
+
+      // 1.3 - the equator 
+      let equatorOuterRadius = 1;
+      let equatorInnerRadius = 0.99; // 99% of the outer
+      let equatorGeometry = new THREE.RingBufferGeometry( equatorInnerRadius, equatorOuterRadius, 72 );
+      let equatorMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, side: THREE.DoubleSide } ); // white
+      let equatorMesh = new THREE.Line( equatorGeometry, equatorMaterial);
+      equatorMesh.scale.set(sCS, sCS, sCS);
+      equatorMesh.rotateX(-Math.PI / 2);
+      equatorMesh.rotateZ(-Math.PI / 2);
+      equatorMesh.visible = false;
+      scene.add( equatorMesh );
+      
+      // 1.4 - the ecliptic circle 
+      let eclipticGeometry = new THREE.CircleBufferGeometry(equatorOuterRadius, 90,0, Math.PI *2);
+      let eclipticMaterial = new THREE.MeshBasicMaterial( { color: 'orange', side: THREE.DoubleSide, opacity : 0.25, transparent: true, } );
+      let eclipticMesh = new THREE.Mesh( eclipticGeometry, eclipticMaterial);
+      //eclipticMesh.scale.set(sCS, sCS, sCS);
+      let rotationOfEcliptic = (Math.PI / 2 + obliquity);
+      eclipticMesh.rotateY(Math.PI / 2);
+      eclipticMesh.rotateX(rotationOfEcliptic);
+      eclipticMesh.visible = true;
+      firstSystem.add(eclipticMesh);
+
+      // 1.5 - the north polar circles
+      let polarCircleMaterial = new THREE.MeshBasicMaterial( { color: 'magenta', side: THREE.DoubleSide } ); // white
+      let polarNorthMesh = new THREE.Line( equatorGeometry, polarCircleMaterial);
+      polarNorthMesh.rotateX(-Math.PI / 2);
+      polarNorthMesh.rotateZ(-Math.PI / 2);
+      polarNorthMesh.position.y = sCS*(cosinus24*cosinusAnomaly) ;
+      polarNorthMesh.scale.set(sCS*sinus24, sCS*sinus24, sCS*sinus24);
+      polarNorthMesh.visible = true;
+      scene.add( polarNorthMesh );
+      
+
+      // 1.6 - the meridian 
+      let meridianMaterial = new THREE.MeshBasicMaterial( { color: 0x000000, side: THREE.DoubleSide } );
+      let meridianMesh = new THREE.Line( equatorGeometry, meridianMaterial);
+      meridianMesh.rotateY(Math.PI / 2);
+      meridianMesh.scale.set(sCS, sCS, sCS);
+      meridianMesh.visible = false;
+      scene.add( meridianMesh );
+
+
+    // *** 2 - The deferent system
+      // 2.1 - deferentOrbit
+      const deferentOrbit = new THREE.Object3D();
+      //deferentOrbit.position.y = 1-cosinusAnomaly;
+      deferentOrbit.rotateZ(-obliquity);
+      deferentOrbit.moving = true;
+      firstSystem.add(deferentOrbit);
+
+      // 2.2 - deferentPoleLine (axis)
+      const heightOfdeferentPole = 1.5 * cosinusAnomaly;  
+      const deferentPoleMaterial = new THREE.MeshBasicMaterial({color: 'magenta'}); 
+      const deferentPoleGeometry = new THREE.CylinderBufferGeometry(0.2, 0.2, heightOfdeferentPole, 8);
+      const deferentPoleCylinder = new THREE.Mesh( deferentPoleGeometry, deferentPoleMaterial );
+      deferentPoleCylinder.scale.set(0.05, 2, 0.05);
+      deferentOrbit.add(deferentPoleCylinder);
+
+
+      // 2.3 - a sphere aroud deferentPoleLine
+
+      thetaS = 0;//Math.PI / 2; // thetaStart
+      thetaL = Math.PI * 2; // thetaLength 
+      let phiS = Math.PI/2; // phiStart
+      let phiL = Math.PI/18; // phiLenght
+      const deferentSphereGeometry = new THREE.SphereBufferGeometry(
+                                        radius, 72, 36 , phiS, phiL, thetaS, thetaL);
+      
+      const deferentSphereMaterial = new THREE.MeshNormalMaterial( { color: 'red', side: THREE.DoubleSide } ); // red
+      deferentSphereMaterial.flatShading = true;
+      const deferentSphereMesh = new THREE.Mesh( deferentSphereGeometry, deferentSphereMaterial);
+      // const deferentSphereMaterial = new THREE.MeshBasicMaterial( { color: 0x2288ff, side: THREE.DoubleSide } ); // red
+      // deferentSphereMaterial.flatShading = true;
+      // const deferentSphereMesh = new THREE.Line( deferentSphereGeometry, deferentSphereMaterial);
+
+      deferentSphereMesh.scale.set(cosinusAnomaly, cosinusAnomaly, cosinusAnomaly);
+      deferentSphereMesh.visible = true;
+      deferentOrbit.add(deferentSphereMesh);
+      
+
+      // 3.3 - epicyleSphere
+      // let epicycleSphereMaterial = new THREE.MeshBasicMaterial( { color: 0x2288ff, side: THREE.DoubleSide } ); // yellow
+      // let epicycleSphereMesh = new THREE.Line( sphereGeometry, epicycleSphereMaterial);
+      // epicycleSphereMesh.visible = true;
+      // epicycleOrbit.add(epicycleSphereMesh);
+
+      // 3.4 - add the sun to the equator of the epicyleSphere
+      let zPlanet = 1;
+      const planetMaterial = new THREE.MeshPhongMaterial( { color: 'yellow'} );
+      planetMaterial.flatShading = true;
+      let planetes = new THREE.Mesh(sphereGeometry, planetMaterial);
+      let sp = 0.15; // scale of planet
+      planetes.scale.set(sp, sp, sp);
+      planetes.position.set(0, 0, zPlanet);
+      deferentSphereMesh.add(planetes);
+
+
+      // ================ Graphical User Interface (HELPER)
+
+      class controlObject {
+        constructor() {
+          this.orbSpeed = 1;
+          this.deferentSpeed = 0;
+          this.equatorVisible = false;
+          this.eclipticVisible = true;
+          this.meridianVisible = false;
+          this.trajectoryVisible = true;
+          this.cameraMoving = false
+        }
+      }
+
+      let control = new controlObject();
+
+      function makeGUI(){
+        let gui = new dat.GUI();
+
+        let f1 = gui.addFolder('Visibility');
+          f1.add(control, 'equatorVisible');
+          f1.add(control, 'eclipticVisible');
+          // f1.add(control, 'meridianVisible');
+          // f1.add(control, 'cameraMoving');
+          //f1.add(control, 'trajectoryVisible');
+        let f2 = gui.addFolder('Speed');
+        let controller1 = f2.add(control, 'deferentSpeed', { 'W-E: 2' : 2, 'W-E: 1' : 1, 'Stopped' : 0 } );
+        let controller2 = f2.add(control, 'orbSpeed', { 'E-W: -1': -1, 'E-W: -0.5': -0.5,'Stopped': 0, 'W-E: 1' : 1 } );
+        f1.open();
+        f2.open();
+
+        controller1.onFinishChange(function(value) {
+          alert("The new deferentSpeed is " + value);
+          control.trajectoryVisible = false;
+          pts=[];
+          nber = 0;
+          minDelta = 10e6;``
+          scene.remove(points);
+        });
+
+        controller2.onFinishChange(function(value) {
+          alert("The new orbSpeed is " + value);
+          control.trajectoryVisible = false;
+          pts=[];
+          nber = 0;
+          minDelta = 10e6;``
+          scene.remove(points);
+        });
+
+      }
+      function showPartOfTrajectory(){
+        usedPoints = [];
+        let increment = 1;
+        let lastPoint = pts.length-1;
+        let firstPoint = lastPoint - 150;
+        if (firstPoint < 0){ 
+            firstPoint = 0;
+        }
+        for (let i = firstPoint; i <= lastPoint; i+= increment){
+          usedPoints.push(pts[i]);
+        }
+
+        // graphical trajectory
+        let pGeometry = new THREE.BufferGeometry().setFromPoints(usedPoints);
+        let lMaterial = new THREE.LineBasicMaterial({
+          color: 'magenta',
+          size : 2,
+        });
+        const trajectoire = new THREE.Line(pGeometry, lMaterial);
+        control.trajectoryVisible = true;
+        scene.add( trajectoire );
+        trajectoryAdded = true;
+      }
+
+
+      function showTrajectory(){
+        usedPoints = [];
+        let increment = 1;
+        for (let i=0; i < atIteration; i+= increment){
+          usedPoints.push(pts[i]);
+        }
+
+        let index = 0;
+        trajecT = '<p>Deferent speed = '+ control.deferentSpeed + '   and Epicycle speed = '+ control.epicycleSpeed+ ' and Orb speed = '+ control.orbSpeed + '</p>';
+        trajecT += "<table> <tr> <td>index</td> <td>x</td><td>y</td><td>z</td><td>longitude</td><td>latitude</td></tr>";
+        for (let v of usedPoints){
+          let xa = v.x/sCS;
+          let za = v.z/sCS;
+
+          let longi = Math.acos(xa / Math.sqrt(xa*xa +za*za) ) * 180.0 / Math.PI;;
+          if (v.z < 0) {
+              longi = (2. * Math.PI  - Math.acos(xa / Math.sqrt(xa*xa + za*za))) * 180.0 / Math.PI; 
+          };
+
+          let latit = (Math.asin(v.y/sCS)) / (Math.PI/180.0);
+          let posiT = '<tr><td>' + index + '</td><td>' +  v.x + '</td><td>' + v.y +'</td><td>'+ v.z + '</td><td>'+ longi + '</td><td>'+ latit + '</td></tr>'
+          trajecT+= posiT;
+          index += increment;
+        }
+        trajecT += "</table>";
+
+        // show the data of the trajectory as a table
+        document.getElementById('planetPositions').innerHTML += trajecT;
+
+        // graphical trajectory
+        let pGeometry = new THREE.BufferGeometry().setFromPoints(usedPoints);
+
+        let trMaterial = new THREE.LineBasicMaterial({
+          color: 'yellow',
+          size : 3,
+        });
+
+        // let trMaterial = new THREE.PointsMaterial({
+        //   color: 'yellow',
+        //   size: 3,     // in world units
+        // });
+        points = new THREE.Points(pGeometry, trMaterial);
+        control.trajectoryVisible = true;
+        scene.add( points );
+        trajectoryAdded = true;
+        alert("trajectoryAdded");
+      }
+      // ========================
+
+    // *** other functions
+      function resizeRendererToDisplaySize(renderer) {
+        const canvas = renderer.domElement;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const needResize = canvas.width !== width || canvas.height !== height;
+        if (needResize) {
+          renderer.setSize(width, height, false);
+        }
+        return needResize;
+      }
+
+
+      function render(time) {
+        //time *= 0.001; // every second
+        time  =  nber / 100.0;
+
+        if (resizeRendererToDisplaySize(renderer)) {
+          const canvas = renderer.domElement;
+          // camera.aspect = canvas.clientWidth / canvas.clientHeight;
+          // camera.updateProjectionMatrix();
+
+          manyCameras.forEach(element => {
+            element.aspect = canvas.clientWidth / canvas.clientHeight;
+            element.updateProjectionMatrix();
+          });
+        }
+        equatorMesh.visible = control.equatorVisible;
+        eclipticMesh.visible = control.eclipticVisible;
+        meridianMesh.visible = control.meridianVisible;
+        if (trajectoryAdded) {
+          points.visible = control.trajectoryVisible;
+        }
+
+        if (deferentOrbit.moving){
+          deferentOrbit.rotation.y = control.deferentSpeed * time;
+          deferentSphereMesh.rotation.y = control.orbSpeed * time;
+        }
+        if (nber <= nberMax){
+          planetes.getWorldPosition(target);
+          let unPoint = new THREE.Vector3((target.x), (target.y), (target.z))
+          
+
+          if (nber == 3){
+            startingPoint = unPoint;
+          }
+          if (nber > 2){
+            pts.push(unPoint);
+            showPartOfTrajectory();
+          }
+
+          if (nber > 10){ 
+            let distanceSquared = startingPoint.distanceToSquared(unPoint);
+            if (distanceSquared < minDelta){
+              minDelta = distanceSquared;
+              atIteration = nber;
+            }
+          }
+
+          nber ++;
+          if (nber == nberMax){
+            showTrajectory();
+            nber ++;
+          }
+        }
+
+        if (control.cameraMoving) {
+          cameraUsed = manyCameras[time*10 % manyCameras.length | 0];
+        } else {
+          cameraUsed = staticCamera;
+        }
+        renderer.render(scene, cameraUsed);
+        requestAnimationFrame(render);// another iterative request 
+      }
+
+      requestAnimationFrame(render);// the first and main request
+      makeGUI();
+
+    }
+
+    main();
+
+
+  </script>
+</body>
+</html>
+

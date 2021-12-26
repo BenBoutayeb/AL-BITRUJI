@@ -1,0 +1,498 @@
+<!DOCTYPE HTML>
+<head>
+  <title>Bitruji cosmological model</title>
+</head>
+<html>
+    <style>
+    html, body {
+       margin: 0;
+       height: 100%;
+    }
+    body {
+        margin: 0;
+    }
+    #c {
+        width: 80%;
+        height: 80%;
+        display: block;
+        position: fixed;
+        background-color: black;
+        left: 0;
+        top: 0;
+        z-index: 2;
+        pointer-events: none;
+    }
+    #content {
+      font-size: 2vw;
+      font-family: sans-serif;
+      text-align: right;
+      width: 90vw;
+      height: 90vh;
+      display: flex;
+      justify-content: right;
+      align-items: right;
+    }
+    </style>
+<body>
+  
+  <canvas id="c">
+  </canvas>
+  <div id="ui"></div>
+  <div id="content">
+    <div>
+      <h2>نجوم ثابتة</h2>
+      <h2>Stars</h2>
+    </div>
+  </div> 
+  <div id="planetPositions">
+    <div>
+      <p>Here are the positions of an equatorial  star</p>
+    </div>
+  </div>
+  <script src="https://threejsfundamentals.org/threejs/../3rdparty/dat.gui.min.js"></script>
+  <script src="https://threejsfundamentals.org/threejs/resources/threejs/r105/three.min.js"></script>
+  <script >
+    // Three.js - Bitruji's Cosmological System
+
+    'use strict';
+
+    function main() {
+
+      let anomalyDegrees = 0;
+
+
+      // some common constants and variables
+      const sCS = 100; // scaleOfCelestialSphere
+      const obliquity = (24.0 * Math.PI) / 180.0; // radians
+      //const anomalyDegrees = 3;
+      const anomaly = (anomalyDegrees * Math.PI) / 180.0; // radians
+      const sinus24 = Math.sin(obliquity);
+      const cosinus24 = Math.cos(obliquity);
+      const sinusAnomaly = Math.sin(anomaly);
+      const cosinusAnomaly = Math.cos(anomaly);
+
+
+
+      let targetPlanet = new THREE.Vector3();
+      let targetPP = new THREE.Vector3();
+      let clock = new THREE.Clock();
+      clock.start();
+      let trajecT = ''; // trajectory as a <table>
+      let pts = []; // positions of the planet
+      let startingPoint = new THREE.Vector3(-sCS * 10, -sCS * 10, -sCS * 10); // the trajectory never starting there
+      let nber = 0; // number of vectors3 in the positions' array
+      const nberMax = 4000; //maximum number of positions registred
+      let minDelta = 10e6;
+      let atIteration = -1;
+      let trajectoire = new THREE.Object3D();
+      let trajectoryAdded = false;
+
+      // Right ascension  and Declination of 991 fixed stars Vmag < 4.5
+      let ascEtoiles = [
+      16.18, 14.1, 21.78, 16, 7.47, 16.1, 17.17, 13.82, 9.18, 11.18, 4.55, 6.38, 4.6, 21.07, 5.98, 7.4, 2.03, 16.1, 4.13, 22.38, 4.25, 6.18, 23.42, 22.72, 6.37, 20.38, 14.33, 23.15, 19.17, 22.45, 8.67, 0.6, 16.23, 8.98, 11.35, 20.77, 0.95, 2.47, 5.67, 7.3, 5.93, 18, 15.18, 0.67, 3.33, 12.93, 8.67, 1.62, 1.25, 0.42, 5.22, 15.77, 17.42, 8.37, 5.58, 12.17, 23.28, 12.78, 15.37, 14.85, 22.58, 15.2, 2.73, 14.52, 15.58, 9.05, 6.67, 16.18, 2.97, 12.55, 22.92, 14.98, 15.83, 18.02, 2.97, 18.78, 22.68, 4.27, 20.22, 20.37, 17.78, 7.48, 4.9, 12.55, 11.15, 14.65, 4.43, 16.85, 11.18, 4.6, 1.75, 22.48, 9.65, 8.62, 12.57, 4.42, 17.23, 3.75, 9.52, 20.18,
+10.27, 5.67, 4.97, 16.35, 8.63, 8.15, 5.42, 16.62, 17.93, 14.1, 22.9, 18.12, 14.97, 1.42, 15.83, 11.87, 15.28, 16.52, 7.45, 11.55, 13.97, 16.25, 12.77, 23.02, 18.75, 8.27, 8.67, 21.52, 17.97, 11.82, 7.88, 11.13, 8.3, 7.57, 20.28, 5.02, 7.42, 5.47, 10.45, 4.28, 13.92, 17.35, 9.6, 5.22, 20.7, 8.42, 15.02, 23.43, 23.28, 10.92, 2.75, 14.32, 6.87, 4.67, 10.32, 16.82, 5.55, 18.33, 12.52, 1.13, 22.25, 10.03, 7.68, 12.08, 22.47, 16.9, 5.32, 18.58, 7.82, 17.72, 23.25, 0.72, 14.02, 19.27, 6.23, 14.72, 7.72, 17.88, 16.35, 16.55, 0.15, 19.47, 0.53, 16, 18.95, 21.43, 7.02, 5.73, 5.95, 18.97, 21.43, 18.9, 23.05, 22.95, 19.38, 13.78, 17.38, 12.68, 7.75, 22.3,
+22.8, 1.03, 18.72, 4.37, 7.33, 3.18, 9.53, 12.47, 7.18, 11.82, 15.73, 3.82, 15.28, 11.35, 12.68, 0.23, 5.98, 22.48, 17.37, 6.47, 8.98, 16.3, 9.75, 9.27, 20.55, 9.27, 11.05, 21.67, 10.12, 0.02, 8.05, 23.17, 14.78, 2.67, 4.58, 15.63, 7.73, 6.33, 4.43, 3.78, 6.57, 15.77, 15.58, 9.75, 19.2, 17.62, 0.7, 16.68, 6.72, 5.05, 9.3, 5.52, 21.37, 10.4, 20.22, 0.87, 3.13, 9.65, 12.43, 2.2, 21.37, 0.4, 10.62, 20.77, 14.77, 3.6, 14.7, 17.17, 13.3, 10.65, 8.03, 3.03, 9.78, 12.68, 1.15, 21.73, 15.18, 21.73, 6.37, 16.48, 9.35, 15.4, 20.42, 21.2, 3.73, 15.03, 12.53, 14.53, 16.87, 7.57, 10.88, 9.12, 12.25, 23, 19.38, 21.32, 23.12, 12.68, 3.6, 13.78,
+21.73, 23.07, 22.27, 2.28, 7.57, 15.07, 19.22, 18.35, 5.85, 3.4, 14.68, 18.87, 23.28, 18.75, 5.4, 21.23, 17.43, 12.53, 10.12, 5.4, 14.25, 5.53, 4.47, 16.7, 20.72, 11.3, 8.92, 14.43, 3.07, 16.98, 10.37, 22.58, 4.7, 11.83, 13.75, 22.17, 6.97, 6.82, 18.93, 3.73, 15.28, 5.92, 0.8, 16.5, 0.93, 8.83, 22.67, 0.32, 1.1, 10.58, 20.63, 1.73, 15.82, 2.05, 9.5, 17.65, 9.52, 16.97, 11.03, 22.15, 19.87, 10.73, 10.7, 12.68, 2.83, 15.6, 4.27, 18.38, 6.72, 18.08, 15.53, 5.53, 4.23, 19.15, 18.47, 11.52, 3.73, 7.97, 17.78, 20.3, 6.9, 18.92, 0.22, 7.18, 14.27, 3.5, 2.65, 7.28, 7.07, 13.42, 23.37, 22.78, 13.52, 7.25, 10.45, 12.32, 0.97, 14.68, 10.77, 1.72,
+6.03, 21.75, 2.73, 17.62, 6.12, 10.53, 17.62, 8.5, 8.77, 8.73, 19.68, 10.28, 7.58, 19.35, 20.48, 23.53, 16.6, 15.13, 16.8, 15.93, 16.32, 20, 16.12, 15.25, 23.1, 3.2, 3.95, 9.45, 17, 5.5, 7.93, 4.82, 6.25, 15.8, 4.75, 12.92, 22.47, 1.4, 12.35, 16.08, 16.52, 5.98, 17.77, 8.18, 19.6, 16.02, 21.88, 15.97, 16.72, 3.32, 10.88, 5.2, 14.68, 1.9, 0.82, 3.82, 6.9, 22.45, 11.05, 3.75, 17.98, 10.23, 4.42, 4.07, 17.5, 6.27, 22.48, 7.27, 7.05, 11.35, 3.48, 4.42, 0.15, 13.65, 8.15, 22.35, 1.92, 1.15, 6.23, 16.13, 8.37, 17.6, 19.07, 10.17, 7.23, 7.13, 5.37, 16.38, 21.68, 17.93, 2.82, 5.6, 23.45, 16.9, 1.9, 19.57, 11.58, 4.63, 12.48, 20.62,
+1.52, 14.83, 7.05, 14.73, 5.38, 5.58, 5.58, 8.8, 20.48, 13.1, 8.23, 20.75, 5.28, 15.53, 19.37, 4.05, 14.57, 4.23, 2.97, 12.88, 5.15, 19.25, 19.67, 6.62, 11.3, 12.9, 8.72, 22.22, 12.25, 7.13, 3.97, 14.33, 19.02, 3.5, 2.05, 14.73, 10.98, 3.15, 20.77, 8.12, 8.77, 19.42, 2.52, 17.2, 14.45, 5.1, 1.1, 15.63, 20.13, 20.65, 18.35, 8.42, 6.47, 5.82, 5.53, 1.52, 16.92, 17.68, 7.8, 16.5, 21.28, 15.3, 4.1, 16.32, 12.62, 9.5, 7.48, 18.43, 14.95, 6.82, 1.1, 9.62, 19.97, 18.92, 9.22, 5.98, 9.17, 19.08, 6.52, 20.78, 11.3, 16.95, 7.2, 21.08, 7.28, 17.23, 10.77, 13.33, 17.33, 14.43, 17.7, 6.62, 21.73, 5.23, 22.77, 18.83, 17.75, 19.1, 22.52, 22.48,
+15.93, 22.17, 17.43, 1.6, 14.65, 10.58, 22.7, 12.88, 12.43, 17.55, 23.62, 6.07, 20.68, 19.93, 6.75, 9, 20.85, 11, 18.73, 6.8, 17.53, 17.52, 21.3, 1.88, 3.82, 3.77, 4.83, 8.33, 2.27, 5.67, 19.42, 15.3, 11.77, 7.28, 4.32, 4.95, 17.17, 4.93, 14.53, 21.95, 5.77, 5.4, 5.83, 4.23, 19.92, 19.1, 3.45, 11.23, 12.62, 9.07, 11.23, 15.62, 16.5, 0.63, 10.43, 1.18, 5.12, 5.78, 21.43, 18.08, 20.75, 5.73, 14.58, 5.98, 19.83, 19.83, 17.5, 12.9, 14.2, 14.65, 11.32, 17.95, 0.13, 18.6, 18.32, 18.38, 18.13, 21.23, 0.52, 23.67, 14.42, 5.57, 5.38, 3.03, 3.55, 10.75, 11.4, 7.63, 16.53, 9.08, 3.72, 13.82, 6.93, 8.37, 21.23, 6.62, 2.12, 8.77, 9.52, 5.85,
+6.38, 19.5, 18.02, 10.22, 8.73, 19.5, 19.98, 20.77, 18.92, 5.58, 7.68, 5.65, 15.7, 13.9, 3.53, 12.25, 4.58, 12.3, 7.93, 9.85, 22.08, 13.42, 16.58, 4.18, 14.62, 11.02, 21.25, 6.75, 14.83, 19.6, 8.67, 8.37, 7.3, 16.87, 7.75, 16.9, 15.35, 11.75, 10.13, 8.15, 13.15, 11.85, 5.52, 21.47, 0.33, 9.87, 1.68, 15.73, 9.83, 5.58, 8.72, 23.98, 2.9, 15.58, 7.72, 13.82, 23.63, 22.47, 0.43, 3.9, 5.27, 6.03, 10.45, 4.63, 4.93, 12.18, 7.87, 2.72, 14.72, 5.2, 18.12, 6.32, 7.87, 22.13, 3.08, 5.6, 8.97, 9.28, 17.83, 18.78, 3.77, 0.78, 14.02, 8.92, 22.12, 12.13, 17.82, 22.77, 5.78, 3.9, 4.47, 5.63, 22.1, 9.03, 19.92, 15.58, 4.63, 16.08, 21.55, 21.28,
+22.05, 14.83, 15.57, 23.65, 19.73, 20.62, 8.77, 20.73, 10.53, 9.13, 12.43, 2.32, 18.98, 10.32, 15.35, 14.07, 23.1, 17.45, 3.7, 3.75, 8.13, 8.77, 17.57, 9, 8.12, 19.8, 7.63, 17.42, 9.68, 4.4, 22.52, 15.88, 20.9, 3.2, 0.6, 2, 17.52, 23.3, 18.13, 4.25, 13.03, 11.77, 6.37, 22.83, 2.65, 7.57, 15.45, 5.08, 20.95, 13.82, 2.15, 19.15, 13.03, 1.85, 14.38, 20.25, 18.45, 13.57, 11.75, 23.7, 2.93, 6.95, 10.82, 3.4, 17.13, 14.27, 9.57, 20.35, 1.47, 2.88, 5.43, 5.58, 15.33, 16.57, 10.12, 2.72, 6.47, 5.9, 12.13, 4.87, 19.77, 23.23, 19.03, 9.4, 1.62, 6.93, 22.77, 16.75, 17.5, 22.82, 12.68, 6.82, 20.13, 14.1, 13.38, 16.83, 22.1, 19.8, 10.92, 7.82,
+3.78, 12.13, 2.03, 3.73, 5.2, 2.82, 21.72, 18.88, 9.57, 1.97, 16.9, 13.38, 12.77, 21.77, 7.2, 18.28, 15.57, 10.28, 9.93, 8.73, 0.72, 23.1, 16.68, 14.83, 0.93, 2.05, 1.88, 11.88, 20.73, 3.77, 16.32, 0.43, 3.97, 6.78, 4.9, 14.05, 19.48, 5.5, 13.18, 22.67, 6.6, 20.78, 4.58, 11.38, 17.25, 5.22, 4.67, 7.65, 12.05, 11.27, 1.13, 19.28, 18.1, 16.45, 8.62, 19.1, 7.3, 1.13, 13.97, 0.52, 10.45, 19.78, 8.3, 5.03, 2.35, 6.38, 22.87, 4, 4.85, 9.37, 12.1, 18.4, 16.07, 6.62, 12.28, 1.15, 2.43, 18.33, 0.65, 22.82, 15.92, 3.32, 15.95, 5.62, 10.12, 4.47, 18.22, 12.3, 15.57, 11.6, 17.25
+      ];
+      let decEtoiles = [
+      -19.45, -36.37, -16.12, -38.38, 8.92, -20.67, -15.72, -34.45, -62.32, -60.3, -55.03, 4.58, -3.35, 43.92, 37.2, -29.3, 2.75, -36.8, 47.7, 52.22, 8.88, 14.2, 23.4, 30.22, 22.5, 32.18, -37.88, -21.17, -39.33, -64.95, -46.63, 33.72, -3.68, 48.03, -54.48, 16.12, 23.42, 8.45, -1.93, -24.95, -14.17, 2.92, -48.73, 56.53, 29.03, 38.32, -35.3, -57.23, -68.87, -77.25, 2.85, 7.35, -55.52, -59.5, -5.9, -22.62, -9.17, -59.68, -44.68, -43.57, 0, -52.08, 49.22, 30.37, -41.17, 47.15, 9.88, -19.45, -40.3, 41.35, -32.53, -42.1, 4.47, 1.3, -40.3, 18.17, 10.82, -51.48, 46.73, 40.25, 2.7, -43.3, 66.33, 69.78, 44.48, -60.83, 15.62, -38.03, -22.82, 41.25, 9.15, -43.73, -61.32, 5.7, -23.38, 17.92, 14.38, 24.47, -57.03, 0,
+23.42, -1.93, 1.7, -25.58, 3.33, -47.33, 6.33, -10.57, 51.48, -26.67, -15.82, 28.75, -43.13, 60.23, -33.62, -33.9, -9.37, -34.7, 8.28, -31.85, -42.1, -63.68, -68.1, 42.32, -26.98, 9.18, -52.92, -5.57, 30.18, 14.57, -48.1, -58.97, -76.92, -22.28, -12.5, 43.82, 27.78, -20.75, -58.73, -33.78, -47.28, -21.1, -49.35, -12.93, 19.15, -66.13, 40.38, -20.63, -58.23, 24.73, -18.57, -46.05, 33.95, -19.67, 19.83, -59.03, -62.48, -29.82, -57.1, -10.17, 37.73, -60.12, -72.6, 8.72, 0, 10.15, -13.17, -8.23, -24.85, 4.57, -9.08, -57.45, 1.53, 38.13, 22.5, -35.17, -28.95, 56.87, 19.15, -78.88, -45.73, 24.65, 62.92, -22.62, -21.1, -22.4, -27.93, -22.43, -35.27, 32.68, -65.37, 36.88, 28.07, -29.62, -40.6, 49.3, 30.48, -1.43, -37.97, -60.25,
+-51.32, 7.88, -71.42, 17.53, 21.97, 19.72, 51.67, -50.22, 30.23, -63.78, 6.42, 65.52, -30.13, -54.48, -48.95, -18.92, -42.8, -43.48, -24.98, 20.2, 48.03, -4.68, -62.5, -57.53, 11.3, -67.47, 61.75, -16.65, 16.75, -6, -40, -45.23, -79.03, -39.85, -30.55, -29.77, 24.38, -30.05, 22.8, -74.23, -52.97, 15.42, -41.17, 23.77, 67.65, -42.98, 41.27, 31.6, 25.12, 60.43, 36.8, 30.43, -16.83, -74.02, 56.57, -72.8, 40.95, -1.13, -63.08, 8.83, 19.8, -72.07, -48.22, 33.97, 1.88, 48.18, -64.97, -15.72, -23.17, -55.6, 2.33, -23.62, -65.07, -1.43, 35.62, 9.87, -48.73, 25.63, -33.43, -26.42, 34.38, 58.95, -56.73, 30.22, 24.1, 2.08, -16.18, 38.3, -38.03, 31.88, -58.85, -43.42, -58.73, -52.75, -44.78, -53.43, 75.38, -48.95, 0, 17.45,
+17.35, 15.2, -7.77, 33.83, 31.88, -25.27, 39.13, 72.72, 39.13, 49.85, -47.38, -62.18, 3.27, 20.53, -2.38, 38.03, 4.13, -72.12, 9.98, -2.38, 19.17, 18.58, 19.17, 38.92, 15.07, 31.52, -60.63, -83.67, 53.5, -53.15, 41.48, 0, 22.95, 1.75, -33.03, 58.2, -28.97, -53.62, -67.23, 32.28, -58.8, 7.4, 7.58, 1.98, 38.48, -27.7, 44.27, -8.82, -46.72, -57.55, -1.1, -15.93, -3.42, 42.32, -40.47, 46, 63.05, -55.98, 20.17, 33.17, 1, -60.08, -64.38, -48.95, 55.88, -66.32, -59.3, -61.48, 13.22, 2.5, 31.35, -17.82, -62.47, -37.9, -49.07, 69.32, 32.28, -49.23, -40.12, -12.53, -24.18, -26.28, 15.18, 0, 46.08, 12.93, 0, -37.08, 20.57, -11.15, -20.1, 58.12, -39.4, -30.68, 36.7, 0, -29.35, 13.72, -49.42, 50.68,
+9.63, 61.12, -13.85, -15.38, 14.77, -61.68, -42.98, 60.72, 6.42, -42.63, 17.47, 42.9, 26.88, -17.83, 30.37, -37.82, -35.25, -45.27, -69.02, -29.2, 46.3, -72.9, -20.87, 33.3, -43.52, -28.98, 40, -8.65, 30.92, 5.93, -52.97, 6.95, 29.48, 18.13, -3.25, 3.38, 0, -8.17, -60.4, -19.8, -16.6, 54.28, 27.72, -39.62, 50.22, 58.55, -37.35, -26.1, -77.52, -43.07, 34.2, -16.2, -37.78, 20.8, 57.8, 24.05, -12.03, -64.95, 61.75, 42.57, -9.77, -42.12, 22.28, 22.07, 52.3, -35.13, 58.4, -67.95, -15.62, 6.02, 59.93, 17.92, 59.13, -53.45, -19.23, -1.38, -51.6, 47.23, -6.27, 44.93, 43.18, -38.63, -21.73, -12.35, -26.77, -70.48, 41.02, 61.5, -77.38, 37.25, 27.25, 9.28, 6.37, -42.35, 63.67, 7.37, -63.02, -14.3, -16.5, -47.28,
+15.33, -27.95, -23.82, 27.07, -69.75, 9.93, 9.93, 5.83, 62.98, -49.9, -40.33, 30.72, -6.83, 31.35, -44.45, 5.98, 29.73, -42.28, -40.3, -48.93, -8.75, 73.35, 18, -43.18, 31.52, 55.95, -33.18, 39.7, 57.02, -26.38, -13.5, -56.38, -5.73, 47.98, 42.32, 27.07, -18.28, 44.85, 16.12, -24.3, 28.75, 3.1, 89.25, -43.23, 75.68, 41.23, -46.72, -42.57, 77.7, 15.9, -2.88, -3.9, -32.57, -56.15, 0, -49.07, -40.83, -12.87, -25.93, 21.48, 34.88, -47.87, 50.35, -50.15, -48.53, -40.47, 31.78, -45.97, -4.33, -32.5, -46.72, 81.32, 19.48, 43.93, -69.72, 45.93, -58.97, 13.85, -23.42, -5.02, 33.08, 9.37, -27.67, -17.22, -36.82, 14.38, -49.42, -36.7, -12.83, -45.37, -39.02, 16.38, -33.02, -8.2, 23.55, 33.35, -64.72, -37.05, -32.33, 47.7,
+15.65, 6.18, -24.17, 41.4, -60.83, -78.6, -46.88, -40.17, -63.08, -37.1, 46.45, 23.25, 45.27, 35.08, 12.88, -41.25, -26.92, -42.22, 37.6, -61.93, 86.58, -60.68, 62.58, 29.57, -36.2, -23.23, 8.9, -77.48, -51.5, -1.93, 20.18, -68.67, 47.77, -37.08, 15.62, 53.75, -15.72, 33.15, -50.45, -54.98, -14.82, -2.38, -35.77, 48.4, 6.4, -4.87, 9.72, 15.42, -69.13, -47.08, 20.52, -28.13, 1.98, 29.3, -16.83, 55.13, -5.08, -9.67, -65.35, -30.42, 61.83, -65.73, -42.15, 44.93, 32.9, 8.87, 26.1, -57.17, -10.27, -60.82, -14.77, 29.23, 29.08, 38.78, 36.05, 21.77, 20.8, 38.03, -62.95, 44.33, 51.85, 9.48, -7.8, 4.08, -21.62, -80.53, -17.68, -26.8, -21.45, -72.6, -9.75, -42.47, -24.72, -59.5, 10, -18.23, 23.45, -13.53, 22.97, -20.87,
+4.58, 27.95, 2.9, -70.03, 18.15, 27.95, -35.27, -25.27, -30.47, -5.9, -9.55, -34.07, 26.28, 18.38, -9.45, -17.53, 16.5, -64, -22.87, -14.83, 0, 54.98, -28.2, -6.83, -49.42, 56.37, 5.23, -16.7, -16.03, -1.28, -59.75, -59.5, -24.95, -38.02, 28.02, -41.82, -40.63, -66.72, 11.97, -47.33, -5.53, -45.17, -35.47, 70.55, -64.87, 26, 5.48, 77.78, 59.03, -4.42, 3.38, -65.57, 52.75, -14.78, 28.88, -41.68, 43.27, 0, -43.67, 31.88, 45.98, 9.63, -31.07, 12.5, 13.5, -52.37, -40.57, 3.23, -5.65, 73.97, 9.55, 59, -38.85, -46.95, 38.83, -1.2, 11.85, -59.27, -6.7, -4.73, -12.1, 24.27, -45.6, 5.93, 25.33, -50.65, -37.03, -81.37, -51.05, -2.95, 15.87, -2.6, -13.87, -66.38, -41.87, -41.17, -14.3, -19.8, 45.58, 39.38,
+64.62, 74.15, 26.7, 5.62, 45.12, 14.58, -46.03, -51.92, 9.3, 51.6, 28.27, -2.97, 15.07, 19.83, -36.25, 64.37, -43.52, -29.87, 47.78, 24.37, -2.98, -56.77, 12.55, 41.77, -68.62, 70.27, -26.8, -56.37, 9.88, -34.02, 50.27, -16.72, -58.45, -28.98, 53.88, -21.07, -49.87, -32.52, -63.67, -7.65, -71.53, -61.17, -17.95, 24.6, -68.27, 31.88, 29.1, -22.37, 41.17, 15.78, 34.98, -21.02, 10.95, -10.33, -39.5, 47.7, -25.42, 0, 6.52, -14.53, -8.88, 58.42, -16.18, 9.02, 65.7, -6, -59.22, -14.77, -43.32, -49.88, 28.6, 9.93, 71.83, 42.43, 35.23, 3.23, -7.02, 20.27, -50.72, -5.45, 10.6, -6.03, -29.87, 26.17, 48.62, -17.05, 12.17, 82.03, -37.28, 66.2, -1.43, -50.6, -66.17, -41.17, 54.92, -34.28, -39.53, 70.27, 24.73, -46.37,
+24.1, -24.72, 2.75, -64.8, -11.87, -32.4, 58.77, 36.92, 52.05, -61.57, -40.73, 54.92, -68.1, 49.3, -46.75, -36.75, 10.53, -61.32, -54.57, -54.7, -17.98, -23.73, 31.6, -16.03, 60.72, 72.42, -46.3, 53.68, -66.2, 23.93, 46.3, -42.3, 35.78, 2.4, 2.43, -60.37, 51.72, 5.93, 27.87, -27.03, -19.25, -9.48, 10.15, 10.52, 36.8, 2.85, -41.85, 5.22, -63.3, -3.65, 86.25, 53.37, -50.08, -18.45, -42.98, -27.67, 16.53, -55.23, -44.8, -62.95, -57.62, 18.53, -36.65, 41.07, -68.65, -52.68, -7.57, 12.48, 5.6, -55, -64.6, -34.38, -11.37, -18.23, -67.95, 47.23, -47.7, 71.33, 30.85, -13.58, -63.42, -21.75, 26.87, 21.13, 0, 15.95, -21.05, -79.3, 10.53, 0, 24.83
+      ];
+
+      //================ BEGIN ==================
+
+      const canvas = document.querySelector('#c');
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        alpha: true,
+      }); // canvas with alpha
+      
+
+    // Cameras
+
+    function makeCamera(fov = 90, posX = 0, posY = 0, posZ = 0) {
+        const aspect = window.innerWidth / window.innerHeight;  // the canvas default
+        const zNear = 0.1;
+        const zFar = 1000;
+        const cam = new THREE.PerspectiveCamera(fov, aspect, zNear, zFar);
+        cam.position.set(posX, posY, posZ);
+        cam.up.set(0, 1, 0);
+        cam.lookAt(0, 0, 0);
+        return cam;
+      }
+      // many cameras to turn around
+      let manyCameras = [];
+      const nbrCam = 360;
+      const eloignement = 1.75;
+      let angle = 2 * Math.PI / nbrCam;
+      for (let i=0; i<nbrCam; i++){
+        manyCameras.push(makeCamera(75, 0,
+                                        Math.cos(angle * i) * eloignement * sCS, 
+                                        Math.sin(angle * i) * eloignement * sCS));
+      }
+      const staticCamera = manyCameras[80];
+
+      let cameraUsed = staticCamera
+
+      // Construct Stars
+      let stars = [];
+      const nberOfStars = ascEtoiles.length;
+      for(let i=0; i < nberOfStars ; i++){
+        let declination = decEtoiles[i];
+        let rightAscension = ascEtoiles[i];
+        let starX = Math.cos(declination) * Math.cos(rightAscension);
+        let starY = Math.sin(declination);
+        let starZ = Math.cos(declination) * Math.sin(rightAscension);
+        let starPoint = new THREE.Vector3(starX, starY, starZ);
+        stars.push(starPoint); 
+      }
+
+    // Scene
+      const scene = new THREE.Scene();
+
+
+    // two lights
+      const color = 0xFFFFFF; 
+      const intensity = 1;
+      // a - light from the left bottom
+      const light1 = new THREE.DirectionalLight(color, intensity);
+      light1.position.set(-sCS, -sCS, 0);
+      light1.target.position.set(0, 0, 0);
+      scene.add(light1);
+      scene.add(light1.target);
+      
+      // b - light from the right top
+      const light2 = new THREE.DirectionalLight(color, intensity);
+      light2.position.set(sCS, sCS, 0);
+      light2.target.position.set(0, 0, 0);
+      scene.add(light2);
+      scene.add(light2.target);
+
+    // A unit sphere to be redimentionned 
+      const radius = 1;
+      const widthSegments = 18; // Longitude : number of divisions
+      const heightSegments = 18;// Latitude
+      let thetaS = 0; // thetaStart
+      let thetaL = Math.PI * 2; // thetaLength 
+      const sphereGeometry = new THREE.SphereBufferGeometry(
+                                        radius, widthSegments, heightSegments, 0, Math.PI * 2, thetaS, thetaL);
+
+    // *** 1 - The 1st reference system (the first mover)
+      const firstSystem = new THREE.Object3D();
+      firstSystem.scale.set(sCS, sCS, sCS);
+      firstSystem.rotateY(-Math.PI/2);
+      firstSystem.moving = true;
+      scene.add(firstSystem);
+
+      // 1.1 - the celestial sphere as a LineMesh
+      let celestialMaterial = new THREE.MeshBasicMaterial( { color: 0x2288ff, side: THREE.DoubleSide } ); // yellow
+      let celestialMesh = new THREE.Line( sphereGeometry, celestialMaterial);
+      celestialMesh.visible = true;
+      celestialMesh.moving = true;
+      firstSystem.add(celestialMesh); 
+
+
+
+      // 1.2 - the main pole axis as a cylinder
+      const scaleOfPole = sCS
+      const radiusTop = 1;  
+      const radiusBottom = 1;  
+      const height = scaleOfPole;
+      const radialSegments = 4;  
+      const poleMaterial = new THREE.MeshBasicMaterial({color: 0xffcc99});
+      const poleGeometry = new THREE.CylinderBufferGeometry(radiusTop, radiusBottom, height, radialSegments);
+      const poleCylinder = new THREE.Mesh( poleGeometry, poleMaterial );
+      poleCylinder.scale.set(0.01*scaleOfPole , 2, 0.01*scaleOfPole);
+      scene.add(poleCylinder); // so it does'nt rotate
+
+      // 1.3 - the equator 
+      let equatorOuterRadius = 1;
+      let equatorInnerRadius = 0.99; // 99% of the outer
+      let equatorGeometry = new THREE.RingBufferGeometry( equatorInnerRadius, equatorOuterRadius, 72 );
+      let equatorMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff, side: THREE.DoubleSide } ); // white
+      let equatorMesh = new THREE.Line( equatorGeometry, equatorMaterial);
+      equatorMesh.scale.set(sCS, sCS, sCS);
+      equatorMesh.rotateX(-Math.PI / 2);
+      equatorMesh.rotateZ(-Math.PI / 2);
+      equatorMesh.visible = false;
+      scene.add( equatorMesh );
+      
+
+      // 1.5 - the north polar circle
+      let polarCircleMaterial = new THREE.MeshBasicMaterial( { color: 'magenta', side: THREE.DoubleSide } ); // white
+      let polarNorthMesh = new THREE.Line( equatorGeometry, polarCircleMaterial);
+      polarNorthMesh.rotateX(-Math.PI / 2);
+      polarNorthMesh.rotateZ(-Math.PI / 2);
+      polarNorthMesh.position.y = sCS*(cosinus24*cosinusAnomaly) ;
+      polarNorthMesh.scale.set(sCS*sinus24, sCS*sinus24, sCS*sinus24);
+      polarNorthMesh.visible = true;
+      scene.add( polarNorthMesh );
+      
+
+      // 1.6 - the meridian 
+      let meridianMaterial = new THREE.MeshBasicMaterial( { color: 0xffffff, side: THREE.DoubleSide } );
+      let meridianMesh = new THREE.Line( equatorGeometry, meridianMaterial);
+      meridianMesh.rotateY(Math.PI / 2);
+      meridianMesh.visible = true;
+      firstSystem.add( meridianMesh );
+
+
+
+
+    // *** 2 - The deferent system
+
+      // 2.1 - deferentOrbit
+      const deferentOrbit = new THREE.Object3D();
+      deferentOrbit.rotateZ(-obliquity);
+      deferentOrbit.moving = false;
+      firstSystem.add(deferentOrbit);
+
+      // 2.2 - deferentPoleLine (axis)
+      const heightOfdeferentPole = cosinusAnomaly;  
+      const deferentPoleMaterial = new THREE.MeshBasicMaterial({color: 'magenta'}); 
+      const deferentPoleGeometry = new THREE.CylinderBufferGeometry(0.2, 0.2, heightOfdeferentPole, 8);
+      const deferentPoleCylinder = new THREE.Mesh( deferentPoleGeometry, deferentPoleMaterial );
+      deferentPoleCylinder.scale.set(0.05, 2.01, 0.05);
+      deferentOrbit.add(deferentPoleCylinder);
+
+      // 2.3 - a (HEMI)sphere aroud deferentPoleLine
+      thetaS = Math.PI / 2; // thetaStart
+      thetaL = Math.PI / 2; // thetaLength 
+      let phiS = 0; // phiStart
+      let phiL = Math.PI * 2; // phiLenght
+      const deferentSphereGeometry = new THREE.SphereBufferGeometry(
+                                        radius, 72, 36 , phiS, phiL, thetaS, thetaL);
+      const deferentSphereMaterial = new THREE.MeshNormalMaterial( { color: 'red', side: THREE.DoubleSide } ); // red
+
+      deferentSphereMaterial.flatShading = true;
+      const deferentSphereMesh = new THREE.Mesh( deferentSphereGeometry, deferentSphereMaterial);
+      deferentSphereMesh.scale.set(cosinusAnomaly, cosinusAnomaly, cosinusAnomaly);
+      deferentSphereMesh.visible = true;
+      deferentOrbit.add(deferentSphereMesh);
+      
+      // 2.4 - the ecliptic circle 
+      let eclipticMaterial = new THREE.MeshBasicMaterial( { color: 0xffff22, side: THREE.DoubleSide } );
+      let eclipticMesh = new THREE.Line( equatorGeometry, eclipticMaterial);
+      let rotationOfEcliptic =  Math.PI / 2 ;
+      eclipticMesh.rotateY(Math.PI / 2);
+      eclipticMesh.rotateX(rotationOfEcliptic);
+      eclipticMesh.visible = false;
+      deferentOrbit.add(eclipticMesh);
+      
+
+      // the stars
+      let sGeometry = new THREE.BufferGeometry().setFromPoints(stars);
+      let sMaterial = new THREE.PointsMaterial({
+        color: 'white',
+        size: 1,     // in world units
+      });
+      let starsMesh = new THREE.Points(sGeometry, sMaterial);
+      deferentOrbit.add(starsMesh);
+      starsMesh.moving = true;
+
+      // Add 5 big stars
+      let bigStars = [];
+      bigStars.push(new THREE.Vector3( 1, 0,  0))
+      bigStars.push(new THREE.Vector3(-1, 0,  0))
+      bigStars.push(new THREE.Vector3( 0, 0,  1))
+      bigStars.push(new THREE.Vector3( 0, 0, -1))
+      bigStars.push(new THREE.Vector3( 0, 1,  0))
+      
+      let bigStarGeometry = new THREE.BufferGeometry().setFromPoints(bigStars);
+      let bigStarMaterial = new THREE.PointsMaterial({
+        color: 'white',
+        size: 5,     // in world units
+      });
+      let bigStarMesh = new THREE.Points(bigStarGeometry, bigStarMaterial);
+      deferentOrbit.add(bigStarMesh);
+
+      // Mark the vernal point on the bigStarMesh
+      let zPlanet = -1;
+      const planetMaterial = new THREE.MeshPhongMaterial( { color: 'white'} );
+      planetMaterial.flatShading = true;
+      let planetes = new THREE.Mesh(sphereGeometry, planetMaterial);
+      let sp = 0.01; // scale of planet
+      planetes.scale.set(sp, sp, sp);
+      planetes.position.set(0, 0, zPlanet);
+      bigStarMesh.add(planetes);
+
+
+      // ================ Graphical User Interface (HELPER)
+
+      class controlObject {
+        constructor() {
+          this.firstSystemSpeed = 0.2;
+          this.orbSpeed = -0.1;
+          this.deferentSpeed = 0;
+          this.equatorVisible = true;
+          this.eclipticVisible = false;
+          this.meridianVisible = false;
+          this.arc90Visible = false;
+          this.trajectoryVisible = false;
+          this.cameraMoving = false;
+        }
+      }
+
+      let control = new controlObject();
+
+      function makeGUI(){
+        let gui = new dat.GUI();
+
+        let f1 = gui.addFolder('Visibility');
+          f1.add(control, 'equatorVisible');
+          f1.add(control, 'eclipticVisible');
+          f1.add(control, 'meridianVisible');
+          f1.add(control, 'cameraMoving');
+          f1.add(control, 'trajectoryVisible');
+        let f2 = gui.addFolder('Speed');
+          let controller1 = f2.add(control, 'firstSystemSpeed',  control.firstSystemSpeed );
+          let controller2 = f2.add(control,         'orbSpeed',  control.orbSpeed );
+        f1.open();
+        f2.open();
+
+
+      }
+
+      function showTrajectory(){
+        pts.shift();
+        pts.shift();
+        
+        let usedPoints = [];
+        let increment = 1;
+        if (atIteration > pts.length){
+          atIteration = pts.length;
+        }
+        for (let i=0; i < atIteration; i+= increment){
+          usedPoints.push(pts[i]);
+        }
+
+        let index = 0;
+        trajecT = '<p>Deferent speed = '+ control.firstSystemSpeed + ' and Orb speed = '+ control.orbSpeed + '</p>';
+        trajecT += "<table> <tr> <td>index</td> <td>x</td><td>y</td><td>z</td><td>longitude</td><td>latitude</td></tr>";
+        for (let v of usedPoints){
+          let xa = v.x/sCS;
+          let za = v.z/sCS;
+
+          let longi = Math.acos(xa / Math.sqrt(xa*xa +za*za) ) * 180.0 / Math.PI;;
+          if (v.z < 0) {
+              longi = (2. * Math.PI  - Math.acos(xa / Math.sqrt(xa*xa + za*za))) * 180.0 / Math.PI; 
+          };
+
+          let latit = (Math.asin(v.y/sCS)) / (Math.PI/180.0);
+          let posiT = '<tr><td>' + index + '</td><td>' +  v.x + '</td><td>' + v.y +'</td><td>'+ v.z + '</td><td>'+ longi + '</td><td>'+ latit + '</td></tr>'
+          trajecT+= posiT;
+          index += increment;
+        }
+        trajecT += "</table>";
+
+        // show the data of the trajectory as a table
+        document.getElementById('planetPositions').innerHTML += trajecT;
+
+        // graphical trajectory
+        let pGeometry = new THREE.BufferGeometry().setFromPoints(usedPoints);
+          //POINTS
+
+        let lMaterial = new THREE.LineBasicMaterial({
+          color: 'red',
+        });
+        trajectoire = new THREE.Line(pGeometry, lMaterial);
+
+
+        control.trajectoryVisible = true;
+        scene.add( trajectoire );
+        trajectoryAdded = true;
+        alert("trajectoryAdded");
+      }
+      // ========================
+
+    // *** other functions
+      function resizeRendererToDisplaySize(renderer) {
+        const canvas = renderer.domElement;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        const needResize = canvas.width !== width || canvas.height !== height;
+        if (needResize) {
+          renderer.setSize(width, height, false);
+        }
+        return needResize;
+      }
+
+
+      function render(time) {
+        time *= 0.001; // every second
+        
+        if (resizeRendererToDisplaySize(renderer)) {
+          const canvas = renderer.domElement;
+          manyCameras.forEach(element => {
+            element.aspect = canvas.clientWidth / canvas.clientHeight;
+            element.updateProjectionMatrix();
+          });
+        }
+        equatorMesh.visible = control.equatorVisible;
+        eclipticMesh.visible = control.eclipticVisible;
+        meridianMesh.visible = control.meridianVisible;
+
+        if (trajectoryAdded) {
+          trajectoire.visible = control.trajectoryVisible;
+        }
+        if (firstSystem.moving){
+          firstSystem.rotation.y = control.firstSystemSpeed * time;
+        }
+        if (deferentOrbit.moving){
+          deferentOrbit.rotation.y = control.deferentSpeed * time;
+        }
+        if (starsMesh.moving){
+          starsMesh.rotation.y = control.orbSpeed * time;
+          bigStarMesh.rotation.y = control.orbSpeed * time;
+        }
+
+        if (nber < nberMax){
+          // get the position of the Planet
+          planetes.getWorldPosition(targetPlanet);
+          let unPoint = new THREE.Vector3((targetPlanet.x), (targetPlanet.y), (targetPlanet.z))
+          pts.push(unPoint);
+                    
+        }
+        nber ++;
+          if (nber == nberMax){
+            atIteration = nber;
+            showTrajectory();
+            nber ++;
+          }
+        
+        if (control.cameraMoving) {
+          cameraUsed = manyCameras[time*10 % manyCameras.length | 0];
+        } else {
+          cameraUsed = staticCamera;
+        }
+        renderer.render(scene, cameraUsed);
+        requestAnimationFrame(render);// another iterative request 
+      }
+
+
+      requestAnimationFrame(render);// the first and main request
+      makeGUI();
+
+    }
+
+    main();
+
+
+  </script>
+</body>
+</html>
+
