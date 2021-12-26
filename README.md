@@ -3,7 +3,7 @@ ASTRONOMICAL MODELS OF AL-BITRUJI
 
 The "KITAB FIL HAY'AH"   كتاب في الهيئة is the only one manuscript left by al-Bitruji. He tempted to describe alternative astronomical models to the ptolemean ones.
 Bernard R. Goldstein studied the manuscripts of this book and translated it into English.
-After having transcripted the arabic manuscript in our modern writing, I developped Javascript codes and Geogebra instructions that helped me to get insight into the astronomical models of al-Bitruji.
+After having transcripted the arabic manuscript in our modern writing, I developped Javascript codes and Geogebra instructions that help getting insight into the astronomical models of al-Bitruji and to see the output as trajectories on the screen.
 
 You will find here the following programs and codes :
 
