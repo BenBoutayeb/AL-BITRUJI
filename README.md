@@ -14,7 +14,7 @@ You will find here the following programs and codes :
     03 - AlBitruji Sun without equant.html // simple model for the sun
     04 - AlBitruji Sun with Equant.ggb // a set of GeoGebra instructions, a more complicated model for the sun using the excentric and equant techniques
 ## Other planets
-// all the next models use a deferent, an epicycle  and the  movement of completion called (isti-fa')
+    All the next models use a deferent, an epicycle  and the  movement of completion called (isti-fa')
     05 - AlBitruji Raw Data.html
     06 - AlBitruji Test Orbspeed 1 half.html
     07 - AlBitruji Test Orbspeed 1of12.html
