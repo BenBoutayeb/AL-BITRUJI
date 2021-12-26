@@ -10,9 +10,9 @@ You will find here the following programs and codes :
 ## FixedStars 
     01 - AlBitruji FixedStars Precession.html  // simulation of the movement of the vernal point (gamma Γ or γ)
 ## Sun
-    02 - Simple Ecliptic.html // is not part of al-Bitruji model but serves as a reference for comparison
+    02 - Simple Ecliptic.html // is not part of al-Bitruji model but serves as a reference to compare with
     03 - AlBitruji Sun without equant.html // simple model for the sun
-    04 - AlBitruji Sun with Equant.ggb // a more complicated model for the sun using the excentric and equant techniques
+    04 - AlBitruji Sun with Equant.ggb // a set of GeoGebra instructions, a more complicated model for the sun using the excentric and equant techniques
 ## Other planets
 // all the next models use a deferent, an epicycle  and the  movement of completion called (isti-fa')
     05 - AlBitruji Raw Data.html
